@@ -1,8 +1,8 @@
-using System.Runtime.CompilerServices;
 using Cursor;
+using Onomondo.ApiClient.Tags;
 using Refit;
 
-namespace Onomondo.ApiClient.Tags;
+namespace Onomondo.ApiClient;
 
 public interface ITags
 {

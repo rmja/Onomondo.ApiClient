@@ -1,6 +1,4 @@
 using Onomondo.ApiClient.Internal;
-using Onomondo.ApiClient.Sims;
-using Onomondo.ApiClient.Tags;
 using Refit;
 
 namespace Onomondo.ApiClient;

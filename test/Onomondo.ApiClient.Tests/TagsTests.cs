@@ -1,6 +1,3 @@
-using Onomondo.ApiClient.Tags;
-using Onomondo.ApiClient.Tests;
-
 namespace Onomondo.ApiClient.Tests;
 
 public class TagsTests(ApiFixture fixture) : IClassFixture<ApiFixture>

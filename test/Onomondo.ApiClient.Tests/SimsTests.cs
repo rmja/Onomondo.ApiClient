@@ -1,5 +1,4 @@
 using Onomondo.ApiClient.Sims;
-using Onomondo.ApiClient.Tests;
 using Refit;
 
 namespace Onomondo.ApiClient.Tests;

@@ -1,8 +1,9 @@
 using System.Net;
 using Cursor;
+using Onomondo.ApiClient.Sims;
 using Refit;
 
-namespace Onomondo.ApiClient.Sims;
+namespace Onomondo.ApiClient;
 
 public interface ISims
 {
