@@ -42,6 +42,8 @@ public sealed class TrafficMonitor : IAsyncDisposable
                 {
                     ["user-agent"] = $"Onomondo.Api/{version}",
                 },
+                // Do not allow the server to upgrade to websockets - this causes some kind of issue, see https://github.com/doghappy/socket.io-client-csharp/issues/412
+                AutoUpgrade = false,
                 Reconnection = false,
             }
         );
