@@ -3,6 +3,7 @@ using System.Net;
 using System.Text.Json.Serialization;
 using System.Threading.Channels;
 using Microsoft.Extensions.Logging;
+using SocketIOClient;
 
 namespace Onomondo.ApiClient;
 
@@ -11,7 +12,7 @@ public sealed class TrafficMonitor : IAsyncDisposable
     private const string ApiUrl = "https://api.onomondo.com";
     private readonly string _apiKey;
     private readonly ILogger? _logger;
-    private readonly SocketIOClient.SocketIO _socket;
+    private readonly SocketIO _socket;
     private TaskCompletionSource _authenticatedTcs = new();
     private TaskCompletionSource _disconnectedTcs = new();
     private readonly ConcurrentDictionary<string, Sim> _sims = new();
@@ -32,12 +33,15 @@ public sealed class TrafficMonitor : IAsyncDisposable
         var version = typeof(TrafficMonitor).Assembly.GetName().Version!.ToString(3);
         _apiKey = apiKey;
         _logger = logger;
-        _socket = new SocketIOClient.SocketIO(
-            ApiUrl,
-            new()
+        _socket = new SocketIO(
+            new(ApiUrl),
+            new SocketIOOptions()
             {
                 Path = "/monitor",
-                ExtraHeaders = new() { ["user-agent"] = $"Onomondo.Api/{version}" },
+                ExtraHeaders = new Dictionary<string, string>()
+                {
+                    ["user-agent"] = $"Onomondo.Api/{version}",
+                },
                 Reconnection = false,
             }
         );
@@ -46,11 +50,14 @@ public sealed class TrafficMonitor : IAsyncDisposable
         {
             _socket.OnAny(
                 (eventName, response) =>
+                {
                     logger.LogDebug(
                         "Got event {EventName} with response {Response}",
                         eventName,
                         response
-                    )
+                    );
+                    return Task.CompletedTask;
+                }
             );
         }
 
@@ -66,11 +73,14 @@ public sealed class TrafficMonitor : IAsyncDisposable
                             and not EventNames.SubscribeError
                             and not EventNames.Packets
                     )
+                    {
                         logger.LogWarning(
                             "Got unsupported event {EventName} with response {Response}",
                             eventName,
                             response
                         );
+                    }
+                    return Task.CompletedTask;
                 }
             );
 
@@ -97,18 +107,25 @@ public sealed class TrafficMonitor : IAsyncDisposable
             }
         };
 
-        _socket.On(EventNames.Authenticated, (response) => _authenticatedTcs.TrySetResult());
+        _socket.On(
+            EventNames.Authenticated,
+            (response) =>
+            {
+                _authenticatedTcs.TrySetResult();
+                return Task.CompletedTask;
+            }
+        );
 
         _socket.On(
             EventNames.SubscribedPackets,
             (response) =>
             {
-                var value = response.GetValue<SubscribedPacketsValue>();
+                var value = response.GetValue<SubscribedPacketsValue>(0)!;
 
                 var sim = GetSim(value.SimId);
                 if (sim is null)
                 {
-                    return;
+                    return Task.CompletedTask;
                 }
 
                 sim.Ip = IPAddress.Parse(value.Ip);
@@ -119,6 +136,7 @@ public sealed class TrafficMonitor : IAsyncDisposable
                     value.SimId,
                     value.Ip
                 );
+                return Task.CompletedTask;
             }
         );
 
@@ -127,24 +145,25 @@ public sealed class TrafficMonitor : IAsyncDisposable
             EventNames.SubscribeError,
             (response) =>
             {
-                var message = response.GetValue<string>();
+                var message = response.GetValue<string>(0)!;
                 var index = message.IndexOf("simId=");
                 if (index == -1)
                 {
                     _logger?.LogError("Subscribe error with invalid format: {Message}", message);
-                    return;
+                    return Task.CompletedTask;
                 }
 
                 var simId = message[(index + 6)..];
                 var sim = GetSim(simId);
                 if (sim is null)
                 {
-                    return;
+                    return Task.CompletedTask;
                 }
 
                 sim.Attached.SetException(new OnomondoException("Subscribe error"));
 
                 _logger?.LogWarning("[{SimId}]: Unable to subscribe to sim", simId);
+                return Task.CompletedTask;
             }
         );
 
@@ -152,18 +171,18 @@ public sealed class TrafficMonitor : IAsyncDisposable
             EventNames.Packets,
             (response) =>
             {
-                var value = response.GetValue<PacketsValue>();
+                var value = response.GetValue<PacketsValue>(0)!;
                 var packetBytes = Convert.FromHexString(value.Packet);
 
                 var sim = GetSim(value.SimId);
                 if (sim is null)
                 {
-                    return;
+                    return Task.CompletedTask;
                 }
 
                 var packet = new CapturePacket(packetBytes) { SimId = sim.Id, SimIp = sim.Ip };
-
                 sim.PacketReceived(packet);
+                return Task.CompletedTask;
             }
         );
     }
@@ -174,7 +193,7 @@ public sealed class TrafficMonitor : IAsyncDisposable
         _disconnectedTcs = new(); // Reset disconnection state
 
         await _socket.ConnectAsync(cancellationToken);
-        await _socket.EmitAsync("authenticate", _apiKey);
+        await _socket.EmitAsync("authenticate", [_apiKey], cancellationToken);
 
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         cts.CancelAfter(TimeSpan.FromSeconds(2));
@@ -211,7 +230,7 @@ public sealed class TrafficMonitor : IAsyncDisposable
         sim.AddSubscription(subscription, out int subscribers);
         if (subscribers == 1)
         {
-            await _socket.EmitAsync("subscribe:packets", simId);
+            await _socket.EmitAsync("subscribe:packets", [simId], cancellationToken);
         }
 
         // Race between attachment, cancellation, and disconnection
@@ -251,7 +270,7 @@ public sealed class TrafficMonitor : IAsyncDisposable
             sim.AddSubscription(subscription, out int subscribers);
             if (subscribers == 1)
             {
-                await _socket.EmitAsync("subscribe:packets", simId);
+                await _socket.EmitAsync("subscribe:packets", [simId], cancellationToken);
             }
 
             tasks.Add(sim.Attached.Task);
@@ -393,7 +412,7 @@ public sealed class TrafficMonitor : IAsyncDisposable
                     if (subscribers == 0)
                     {
                         sim.ClearAttached();
-                        await monitor._socket.EmitAsync("unsubscribe:packets", sim.Id);
+                        await monitor._socket.EmitAsync("unsubscribe:packets", [sim.Id]);
                     }
                 }
             }
