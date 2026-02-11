@@ -1,0 +1,9 @@
+{
+  "version": "1",
+  "name": "Onomondo API",
+  "type": "collection",
+  "ignore": [
+    "node_modules",
+    ".git"
+  ]
+}

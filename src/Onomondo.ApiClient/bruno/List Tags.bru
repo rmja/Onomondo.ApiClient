@@ -1,0 +1,15 @@
+meta {
+  name: List Tags
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{BaseUrl}}/tags/search/tags
+  body: none
+  auth: inherit
+}
+
+settings {
+  encodeUrl: true
+}

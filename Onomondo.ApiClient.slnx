@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="src/Onomondo.ApiClient/Onomondo.ApiClient.csproj" />
+  <Project Path="test/Onomondo.ApiClient.Tests/Onomondo.ApiClient.Tests.csproj" />
+</Solution>
