@@ -4,9 +4,20 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsAotCompatible>true</IsAotCompatible>
+    <Authors>Rasmus Melchior Jacobsen</Authors>
+    <Description>Unofficial .NET API Client for Onomondo.</Description>
+    <PackageProjectUrl>https://github.com/rmja/Onomondo.ApiClient</PackageProjectUrl>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <RepositoryType>git</RepositoryType>
+    <RepositoryUrl>https://github.com/rmja/Onomondo.ApiClient.git</RepositoryUrl>
+    <Version>1.0.0-alpha.0</Version>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="Onomondo.ApiClient.Tests" />
+    <None Include="..\..\README.md" Pack="true" PackagePath="">
+      <Link>Properties\README.md</Link>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Cursor" Version="0.0.3" />
