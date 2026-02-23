@@ -13,8 +13,12 @@ public sealed class TrafficMonitor : IAsyncDisposable
     private readonly string _apiKey;
     private readonly ILogger? _logger;
     private readonly SocketIO _socket;
-    private TaskCompletionSource _authenticatedTcs = new();
-    private TaskCompletionSource _disconnectedTcs = new();
+    private TaskCompletionSource _authenticatedTcs = new(
+        TaskCreationOptions.RunContinuationsAsynchronously
+    );
+    private TaskCompletionSource _disconnectedTcs = new(
+        TaskCreationOptions.RunContinuationsAsynchronously
+    );
     private readonly ConcurrentDictionary<string, Sim> _sims = new();
 
     public bool Connected => _socket.Connected;
@@ -194,15 +198,15 @@ public sealed class TrafficMonitor : IAsyncDisposable
         _authenticatedTcs = new(); // Reset for new connection
         _disconnectedTcs = new(); // Reset disconnection state
 
-        await _socket.ConnectAsync(cancellationToken);
-        await _socket.EmitAsync("authenticate", [_apiKey], cancellationToken);
+        await _socket.ConnectAsync(cancellationToken).ConfigureAwait(false);
+        await _socket.EmitAsync("authenticate", [_apiKey], cancellationToken).ConfigureAwait(false);
 
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         cts.CancelAfter(TimeSpan.FromSeconds(2));
 
         try
         {
-            await _authenticatedTcs.Task.WaitAsync(cts.Token);
+            await _authenticatedTcs.Task.WaitAsync(cts.Token).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
@@ -212,8 +216,7 @@ public sealed class TrafficMonitor : IAsyncDisposable
 
     public async Task DisconnectAsync(CancellationToken cancellationToken = default)
     {
-        cancellationToken.ThrowIfCancellationRequested();
-        await _socket.DisconnectAsync();
+        await _socket.DisconnectAsync(cancellationToken).ConfigureAwait(false);
     }
 
     public async Task<Subscription> SubscribeAsync(
@@ -232,7 +235,9 @@ public sealed class TrafficMonitor : IAsyncDisposable
         sim.AddSubscription(subscription, out int subscribers);
         if (subscribers == 1)
         {
-            await _socket.EmitAsync("subscribe:packets", [simId], cancellationToken);
+            await _socket
+                .EmitAsync("subscribe:packets", [simId], cancellationToken)
+                .ConfigureAwait(false);
         }
 
         // Race between attachment, cancellation, and disconnection
@@ -244,11 +249,11 @@ public sealed class TrafficMonitor : IAsyncDisposable
 
         if (completedTask == _disconnectedTcs.Task)
         {
-            await _disconnectedTcs.Task; // Throw disconnection exception
+            await _disconnectedTcs.Task.ConfigureAwait(false); // Throw disconnection exception
         }
 
         cancellationToken.ThrowIfCancellationRequested();
-        await sim.Attached.Task; // This will throw if subscription failed
+        await sim.Attached.Task.ConfigureAwait(false); // This will throw if subscription failed
 
         return subscription;
     }
@@ -272,7 +277,9 @@ public sealed class TrafficMonitor : IAsyncDisposable
             sim.AddSubscription(subscription, out int subscribers);
             if (subscribers == 1)
             {
-                await _socket.EmitAsync("subscribe:packets", [simId], cancellationToken);
+                await _socket
+                    .EmitAsync("subscribe:packets", [simId], cancellationToken)
+                    .ConfigureAwait(false);
             }
 
             tasks.Add(sim.Attached.Task);
@@ -280,20 +287,21 @@ public sealed class TrafficMonitor : IAsyncDisposable
 
         // Race between attachment, cancellation, and disconnection
         var completedTask = await Task.WhenAny(
-            Task.WhenAll(tasks),
-            Task.Delay(Timeout.Infinite, cancellationToken),
-            _disconnectedTcs.Task
-        );
+                Task.WhenAll(tasks),
+                Task.Delay(Timeout.Infinite, cancellationToken),
+                _disconnectedTcs.Task
+            )
+            .ConfigureAwait(false);
 
         if (completedTask == _disconnectedTcs.Task)
         {
-            await _disconnectedTcs.Task; // Throw disconnection exception
+            await _disconnectedTcs.Task.ConfigureAwait(false); // Throw disconnection exception
         }
 
         cancellationToken.ThrowIfCancellationRequested();
         foreach (var task in tasks)
         {
-            await task; // This will throw if subscription failed
+            await task.ConfigureAwait(false); // This will throw if subscription failed
         }
 
         return subscription;
@@ -314,7 +322,7 @@ public sealed class TrafficMonitor : IAsyncDisposable
     {
         if (Connected)
         {
-            await DisconnectAsync();
+            await DisconnectAsync().ConfigureAwait(false);
         }
 
         _socket.Dispose();
@@ -326,7 +334,8 @@ public sealed class TrafficMonitor : IAsyncDisposable
 
         public string Id { get; } = id;
         public IPAddress Ip { get; internal set; } = IPAddress.None;
-        public TaskCompletionSource Attached { get; internal set; } = new();
+        public TaskCompletionSource Attached { get; internal set; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
 
         public IEnumerable<Subscription> GetSubscriptions()
         {
@@ -383,7 +392,7 @@ public sealed class TrafficMonitor : IAsyncDisposable
 
         internal void ClearAttached()
         {
-            Attached = new();
+            Attached = new(TaskCreationOptions.RunContinuationsAsynchronously);
         }
     }
 
@@ -414,7 +423,9 @@ public sealed class TrafficMonitor : IAsyncDisposable
                     if (subscribers == 0)
                     {
                         sim.ClearAttached();
-                        await monitor._socket.EmitAsync("unsubscribe:packets", [sim.Id]);
+                        await monitor
+                            ._socket.EmitAsync("unsubscribe:packets", [sim.Id])
+                            .ConfigureAwait(false);
                     }
                 }
             }
