@@ -16,8 +16,8 @@ public record Sim
     public bool Activated { get; set; }
     public required string Ipv4 { get; set; }
     public bool Online { get; set; }
-    public DateTime? OnlineAt { get; set; }
-    public DateTime? LastCameOnlineAt { get; set; }
+    public DateTimeOffset? OnlineAt { get; set; }
+    public DateTimeOffset? LastCameOnlineAt { get; set; }
     public Network Network { get; set; } = new();
     public long Usage { get; set; }
     public List<Tag> Tags { get; set; } = [];
