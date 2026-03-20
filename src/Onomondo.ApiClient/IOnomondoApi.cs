@@ -1,3 +1,3 @@
 namespace Onomondo.ApiClient;
 
-internal interface IOnomondoApi : ISims, ITags;
+internal interface IOnomondoApi : INetworkLogs, ISims, ITags;

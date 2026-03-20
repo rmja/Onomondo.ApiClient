@@ -1,0 +1,19 @@
+meta {
+  name: Retrieve Network Logs
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{BaseUrl}}/network-logs/:simId
+  body: none
+  auth: inherit
+}
+
+params:path {
+  simId: 
+}
+
+settings {
+  encodeUrl: true
+}
