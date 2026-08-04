@@ -7,11 +7,9 @@ public class NetworkLogsTests(ApiFixture fixture) : IClassFixture<ApiFixture>
     [Fact]
     public async Task CanGetNetworkLogs()
     {
+        var timestamp = DateTime.UtcNow.AddDays(-20);
         var logs = await _client
-            .NetworkLogs.EnumerateSimNetworkLogsAsync(
-                "000869117",
-                new(2026, 03, 20, 00, 00, 00, TimeSpan.Zero)
-            )
+            .NetworkLogs.EnumerateSimNetworkLogsAsync("000869117", timestamp)
             .ToListAsync(TestContext.Current.CancellationToken);
 
         Assert.NotEmpty(logs);

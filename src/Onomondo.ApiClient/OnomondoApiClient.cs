@@ -22,7 +22,7 @@ public class OnomondoApiClient : IOnomondoApiClient
     {
         httpClient.BaseAddress = new("https://api.onomondo.com");
         httpClient.DefaultRequestHeaders.TryAddWithoutValidation("Authorization", apiKey);
-        _api = RestService.For<IOnomondoApi>(httpClient, _refitSettings);
+        _api = RestService.ForGenerated<IOnomondoApi>(httpClient, _refitSettings);
     }
 }
 
